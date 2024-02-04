@@ -7,7 +7,7 @@ def list_aws_services(region):
     ec2_client = boto3.client('ec2', region_name=region)
     s3_client = boto3.client('s3', region_name=region)
     rds_client = boto3.client('rds', region_name=region)
-    
+    lambda_client = boto3.client('lambda', region_name=region)
 
     # List EC2 instances
     print("\nEC2 Instances:")
@@ -28,7 +28,11 @@ def list_aws_services(region):
     for rds_instance in rds_instances['DBInstances']:
         print(f"DBInstanceIdentifier: {rds_instance['DBInstanceIdentifier']}, Status: {rds_instance['DBInstanceStatus']}")
 
-    
+    # List Lambda functions
+    print("\nLambda Functions:")
+    lambda_functions = lambda_client.list_functions()
+    for function in lambda_functions['Functions']:
+        print(f"FunctionName: {function['FunctionName']}, Runtime: {function['Runtime']}")
 
 def main():
     # Get available AWS regions
