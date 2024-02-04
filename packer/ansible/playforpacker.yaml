@@ -1,0 +1,79 @@
+- name: Deploy Web Server and Secure Demo Site on localhost
+  hosts: localhost
+  gather_facts: true
+  become: true
+  become_user: root
+
+  vars:
+    git_repo: "https://github.com/krishnarajj/Cloudformation-and-ansible.git"
+    domain_name: "kv.com"
+
+  tasks:
+    - name: Install Nginx on EC2 Instance
+      become: true
+      ansible.builtin.apt:
+        name: nginx
+        state: present
+
+    - name: Install Git
+      become: true
+      ansible.builtin.apt:
+        name: git
+        state: present
+
+    - name: Create directory for SSL certificates
+      become: true
+      ansible.builtin.file:
+        path: "/etc/nginx/certs/"
+        state: directory
+
+    - name: Check if /var/www/html exists and is not empty
+      become: true
+      ansible.builtin.stat:
+        path: "/var/www/html"
+      register: html_dir
+
+    - name: Remove contents of /var/www/html if it exists and is not empty
+      become: true
+      ansible.builtin.file:
+        path: "/var/www/html"
+        state: absent
+      when: html_dir.stat.isdir and html_dir.stat.size > 0
+
+    - name: Download code from Git
+      become: true
+      ansible.builtin.git:
+        repo: "{{ git_repo }}"
+        dest: /var/www/html
+        version: main
+
+    - name: Configure Nginx with security best practices
+      become: true
+      ansible.builtin.template:
+        src: /var/www/html/nginx.conf
+        dest: /etc/nginx/nginx.conf
+      notify: Restart Nginx
+
+    - name: Create Self-Signed Certificate on Ubuntu
+      become: true
+      ansible.builtin.command:
+        cmd: >
+          openssl req -x509 -nodes -days 365
+          -newkey rsa:2048
+          -keyout /etc/nginx/certs/kv.com.key
+          -out /etc/nginx/certs/kv.com.crt
+          -subj "/C=US/ST=State/L=Locality/O=Organization/OU=Organizational Unit/CN=kv.com"
+      notify: Restart Nginx
+      changed_when: true
+
+    - name: Introduce a delay to allow Nginx to start
+      ansible.builtin.wait_for:
+        timeout: 60
+
+  handlers:
+    - name: Restart Nginx
+      become: true
+      ansible.builtin.service:
+        name: nginx
+        state: restarted
+
