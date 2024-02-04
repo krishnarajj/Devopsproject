@@ -1,0 +1,194 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  VpcCidr:
+    Type: String
+    Default: 10.0.0.0/16
+Resources:
+  MyVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: MyVPC
+        - Key: Environment
+          Value: Production
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVPC
+      CidrBlock: 10.0.0.0/24
+      AvailabilityZone: us-east-1a
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: PublicSubnet1
+        - Key: Environment
+          Value: Production
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: us-east-1b
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: PublicSubnet2
+        - Key: Environment
+          Value: Production
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: us-east-1a
+      Tags:
+        - Key: Name
+          Value: PrivateSubnet1
+        - Key: Environment
+          Value: Production
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVPC
+      CidrBlock: 10.0.3.0/24
+      AvailabilityZone: us-east-1b
+      Tags:
+        - Key: Name
+          Value: PrivateSubnet2
+        - Key: Environment
+          Value: Production
+  PublicRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MyVPC
+      Tags:
+        - Key: Name
+          Value: PublicRouteTable1
+        - Key: Environment
+          Value: Production
+  PublicRouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MyVPC
+      Tags:
+        - Key: Name
+          Value: PublicRouteTable2
+        - Key: Environment
+          Value: Production
+  PrivateRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MyVPC
+      Tags:
+        - Key: Name
+          Value: PrivateRouteTable1
+        - Key: Environment
+          Value: Production
+  PrivateRouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MyVPC
+      Tags:
+        - Key: Name
+          Value: PrivateRouteTable2
+        - Key: Environment
+          Value: Production
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: InternetGateway
+        - Key: Environment
+          Value: Production
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref MyVPC
+      InternetGatewayId: !Ref InternetGateway
+  PublicSubnet1Association:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable1
+  PublicSubnet2Association:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable2
+  PrivateSubnet1Association:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet1
+      RouteTableId: !Ref PrivateRouteTable1
+  PrivateSubnet2Association:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet2
+      RouteTableId: !Ref PrivateRouteTable2
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow inbound traffic on port 80 and 443
+      VpcId: !Ref MyVPC
+      SecurityGroupIngress:
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+      Tags:
+        - Key: Name
+          Value: ELBSecurityGroup
+        - Key: Environment
+          Value: Production
+  PublicRoute1:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref PublicRouteTable1
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+  PublicRoute2:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref PublicRouteTable2
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  EC2role:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: EC2role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Policies:
+        - PolicyName: EC2rolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 's3:GetObject'
+                  - 's3:ListBucket'
+                Resource: '*'
+
+  EC2roleInstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      InstanceProfileName: EC2roleInstanceProfile
+      Roles:
+        - !Ref EC2role
